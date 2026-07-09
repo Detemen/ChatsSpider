@@ -1,0 +1,5 @@
+123456	Crypto Трейдинг	@cryptotrade_ua
+789012	Маркетинг SMM	@smm_masters
+345678	IT Розробка	@dev_community_ru
+901234	Фріланс Україна	@freelance_ua_hub
+567890	Дизайн та UX	@design_creative_ru

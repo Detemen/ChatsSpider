@@ -1,0 +1,19 @@
+{
+  "chats": [
+    {
+      "url": "https://t.me/blockchain_talks",
+      "username": "blockchain_talks",
+      "title": "Blockchain і Криптовалюти"
+    },
+    {
+      "url": "https://t.me/smm_strategies",
+      "username": "smm_strategies",
+      "title": "SMM Стратегії"
+    },
+    {
+      "url": "https://t.me/python_developers",
+      "username": "python_developers",
+      "title": "Python Розробники"
+    }
+  ]
+}

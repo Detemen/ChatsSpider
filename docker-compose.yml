@@ -1,0 +1,26 @@
+services:
+  spider:
+    image: chatsspider:latest
+    container_name: chatsspider
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./accs:/app/accs
+      - ./output:/app/output
+    logging:
+      driver: journald
+      options:
+        tag: chatsspider
+
+  bot:
+    image: chatsspider-bot:latest
+    container_name: chatsspider-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./output:/app/output
+      - ./TelegramAnalysis:/app/TelegramAnalysis:ro
+    logging:
+      driver: journald
+      options:
+        tag: chatsspider-bot
