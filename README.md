@@ -1,5 +1,9 @@
 # Telegram Spider - ChatsSpider
 
+![Python](https://img.shields.io/badge/Python-Telethon-3776AB?logo=python&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-ChatGPT%20automation-2EAD33?logo=playwright&logoColor=white)
+![Production](https://img.shields.io/badge/status-production-brightgreen)
+
 Мульти-аккаунтний парсер Telegram каналів та чатів на базі Telethon.
 
 ## 🚀 НОВИНКА: Аналіз чатів через ChatGPT + Playwright
