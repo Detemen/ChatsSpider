@@ -318,6 +318,8 @@ async def account_worker(slot_index: int,
     """
     name = session_path.name
     session_found_chats: set = set()  # для счётчика "найдено за сессию"
+    channel_fails: dict = {}   # {channel: consecutive_fail_count}
+    consec_conn_errs = [0]     # mutable box — кількість поспіль ConnectionError
     async with STATUS_LOCK:
         STATUS[name] = {
             "assigned": len(assigned_channels),
@@ -379,9 +381,28 @@ async def account_worker(slot_index: int,
             await asyncio.sleep(secs)
             return
         except Exception as e:
+            err_type = type(e).__name__
+            channel_fails[target] = channel_fails.get(target, 0) + 1
+            fails = channel_fails[target]
             async with STATUS_LOCK:
-                STATUS[name]["last_error"] = f"get_entity: {type(e).__name__}"
-            logging.debug(f"[{name}] get_entity({target}) error: {e}")
+                STATUS[name]["last_error"] = f"get_entity: {err_type} (ch_fail#{fails})"
+            logging.debug(f"[{name}] get_entity({target}) error #{fails}: {e}")
+            if err_type == "ConnectionError":
+                consec_conn_errs[0] += 1
+                if consec_conn_errs[0] >= 5:
+                    logging.warning(f"[{name}] {consec_conn_errs[0]} поспіль ConnectionError — перепідключення")
+                    async with STATUS_LOCK:
+                        STATUS[name]["last_error"] = "reconnecting..."
+                    try:
+                        await client.disconnect()
+                        await asyncio.sleep(15)
+                        await client.connect()
+                        consec_conn_errs[0] = 0
+                        logging.info(f"[{name}] Перепідключено успішно")
+                    except Exception as re:
+                        logging.error(f"[{name}] Перепідключення не вдалось: {re}")
+            else:
+                consec_conn_errs[0] = 0
             return
 
         if not isinstance(entity, Channel):
@@ -459,7 +480,9 @@ async def account_worker(slot_index: int,
             # рекомендации могут быть недоступны — не считаем за падение
             logging.debug(f"[{name}] Recommendations error: {e}")
 
-        # если дошли сюда успешно — обнулим last_error для красивого статуса
+        # успішно — скидаємо лічильники помилок для цього каналу
+        consec_conn_errs[0] = 0
+        channel_fails.pop(target, None)
         async with STATUS_LOCK:
             STATUS[name]["last_error"] = None
         DELAYS.on_success()
@@ -483,7 +506,12 @@ async def account_worker(slot_index: int,
             # (Если захочешь — добавлю флажки "последний обход".)
             batch = DB.get_all_channel_usernames(limit=200)
             random.shuffle(batch)
+            skipped = 0
             for target in batch:
+                if channel_fails.get(target, 0) >= 3:
+                    skipped += 1
+                    logging.debug(f"[{name}] skip bad channel {target} (fails={channel_fails[target]})")
+                    continue
                 try:
                     await process_channel(target)
                 except Exception as e:
@@ -491,6 +519,13 @@ async def account_worker(slot_index: int,
                         STATUS[name]["last_error"] = f"loop: {type(e).__name__}"
                     logging.debug(f"[{name}] loop error {target}: {e}")
                 await asyncio.sleep(random.uniform(DELAYS.delay_min, DELAYS.delay_max))
+            if skipped:
+                logging.info(f"[{name}] Pass done — skipped {skipped} bad channels, bad_list={len(channel_fails)}")
+            # зменшуємо лічильники — канали отримують новий шанс у наступному проході
+            for ch in list(channel_fails):
+                channel_fails[ch] -= 1
+                if channel_fails[ch] <= 0:
+                    del channel_fails[ch]
             await asyncio.sleep(random.uniform(DELAYS.pass_min, DELAYS.pass_max))
     except asyncio.CancelledError:
         pass
